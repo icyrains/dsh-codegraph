@@ -72,11 +72,18 @@ const shellService = {
 
 // --- stub cordis context --------------------------------------------------
 const registeredTools = []
+const promptSections = []
 
 const ctx = {
   tools: {
     register(tool) {
       registeredTools.push(tool)
+    }
+  },
+  systemPrompt: {
+    section(sec) {
+      promptSections.push(sec)
+      return () => {}
     }
   },
   get(name) {
@@ -143,14 +150,26 @@ try {
   process.exit(1)
 }
 
-console.log('\n=== 2) tool registration (expect 13 codegraph_* tools) ===')
+console.log('\n=== 2) systemPrompt guidance injected (prefer codegraph for code search) ===')
+const cg = promptSections.find((s) => s.name === 'tool:codegraph')
+if (cg) {
+  ok(`injected section "tool:codegraph"`, `order=${cg.order}, text.length=${cg.text.length}`)
+  if (cg.order < 100) ok(`order ${cg.order} < 100 → renders before grep/glob/read`, null)
+  else bad('order should be < 100 (before read=100/grep=104)', `got ${cg.order}`)
+  if (/codegraph_status/.test(cg.text) && /codegraph_query/.test(cg.text)) ok('guidance mentions codegraph_status & codegraph_query')
+  else bad('guidance text should instruct codegraph_* usage')
+} else {
+  bad('no "tool:codegraph" systemPrompt section injected')
+}
+
+console.log('\n=== 3) tool registration (expect 13 codegraph_* tools) ===')
 const names = registeredTools.map((t) => t.name).sort()
 const codeTools = names.filter((n) => n.startsWith('codegraph_'))
 console.log('   registered:', names.join(', '))
 if (codeTools.length === 13) ok(`13 codegraph_* tools registered`, codeTools.join(', '))
 else bad(`expected 13 codegraph_* tools, got ${codeTools.length}`, null)
 
-console.log('\n=== 3) codegraph_status (not yet indexed) ===')
+console.log('\n=== 4) codegraph_status (not yet indexed) ===')
 try {
   const s = await call('codegraph_status', {})
   console.log('   status output:', s.slice(0, 220))
@@ -159,7 +178,7 @@ try {
   bad('codegraph_status', null, e.message)
 }
 
-console.log('\n=== 4) codegraph_init (bootstrap the index) ===')
+console.log('\n=== 5) codegraph_init (bootstrap the index) ===')
 try {
   const out = await call('codegraph_init', {})
   console.log('   init output:', String(out).slice(0, 200))
@@ -168,7 +187,7 @@ try {
   bad('codegraph_init', null, e.message)
 }
 
-console.log('\n=== 5) codegraph_status (indexed) ===')
+console.log('\n=== 6) codegraph_status (indexed) ===')
 try {
   const s = String(await call('codegraph_status', {}))
   console.log('   status:', s.slice(0, 260))
@@ -177,7 +196,7 @@ try {
   bad('codegraph_status after init', null, e.message)
 }
 
-console.log('\n=== 6) codegraph_query("multiply") ===')
+console.log('\n=== 7) codegraph_query("multiply") ===')
 try {
   const q = String(await call('codegraph_query', { search: 'multiply' }))
   console.log('   query:', q.slice(0, 260))
@@ -186,7 +205,7 @@ try {
   bad('codegraph_query', null, e.message)
 }
 
-console.log('\n=== 7) codegraph_node("add") ===')
+console.log('\n=== 8) codegraph_node("add") ===')
 try {
   const n = String(await call('codegraph_node', { name: 'add' }))
   console.log('   node:', n.slice(0, 280))
@@ -195,7 +214,7 @@ try {
   bad('codegraph_node', null, e.message)
 }
 
-console.log('\n=== 8) codegraph_callers(double) & codegraph_callees(multiply) ===')
+console.log('\n=== 9) codegraph_callers(double) & codegraph_callees(multiply) ===')
 try {
   const c = String(await call('codegraph_callers', { symbol: 'double' }))
   console.log('   callers(double):', c.slice(0, 200))
@@ -211,7 +230,7 @@ try {
   bad('codegraph_callees', null, e.message)
 }
 
-console.log('\n=== 9) codegraph_explore("math utilities") ===')
+console.log('\n=== 10) codegraph_explore("math utilities") ===')
 try {
   const ex = String(await call('codegraph_explore', { query: 'math utilities', maxFiles: 2 }))
   console.log('   explore:', ex.slice(0, 280))
@@ -220,7 +239,7 @@ try {
   bad('codegraph_explore', null, e.message)
 }
 
-console.log('\n=== 10) codegraph_files ===')
+console.log('\n=== 11) codegraph_files ===')
 try {
   const f = String(await call('codegraph_files', {}))
   console.log('   files:', f.slice(0, 200))
@@ -229,7 +248,7 @@ try {
   bad('codegraph_files', null, e.message)
 }
 
-console.log('\n=== 11) path arg override (point at test project explicitly) ===')
+console.log('\n=== 12) path arg override (point at test project explicitly) ===')
 try {
   const s = String(await call('codegraph_status', { path: '/tmp/cg-test-proj' }))
   console.log('   status(path):', s.slice(0, 200))
@@ -238,7 +257,7 @@ try {
   bad('codegraph_status with explicit path', null, e.message)
 }
 
-console.log('\n=== 12) codegraph_sync ===')
+console.log('\n=== 13) codegraph_sync ===')
 try {
   const s = String(await call('codegraph_sync', {}))
   console.log('   sync:', (s || '(no output)').slice(0, 200))
@@ -247,7 +266,7 @@ try {
   bad('codegraph_sync', null, e.message)
 }
 
-console.log('\n=== 13) codegraph_impact(multiply) & codegraph_affected ===')
+console.log('\n=== 14) codegraph_impact(multiply) & codegraph_affected ===')
 try {
   const im = String(await call('codegraph_impact', { symbol: 'multiply', depth: 1 }))
   console.log('   impact:', im.slice(0, 220))
@@ -263,7 +282,7 @@ try {
   bad('codegraph_affected', null, e.message)
 }
 
-console.log('\n=== 14) error path: no path, no session cwd ===')
+console.log('\n=== 15) error path: no path, no session cwd ===')
 try {
   const t = registeredTools.find((x) => x.name === 'codegraph_status')
   await t.execute({}, { agent: { session: { header: {} } }, signal: new AbortController().signal })
@@ -272,7 +291,7 @@ try {
   ok('throws when no session cwd and no path', e.message.slice(0, 80))
 }
 
-console.log('\n=== 15) remaining tools registered & present ===')
+console.log('\n=== 16) remaining tools registered & present ===')
 for (const t of ['codegraph_index', 'codegraph_uninit']) {
   const present = !!registeredTools.find((x) => x.name === t)
   if (present) ok(`registered ${t}`)
