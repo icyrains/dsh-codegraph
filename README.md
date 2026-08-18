@@ -102,28 +102,27 @@ codegraph 的官方 MCP server 在工作区**未建立索引时暴露 0 个工�
 
 ## 注册到 DSH 插件市场
 
-DSH 桌面端的可视化插件市场（[`dshmarket`](https://dshmarket.com)）读取的是策划型注册表
-`https://awesome-dsh-plugin.com/plugins.json`，由
-`github.com/awesome-dsh-plugin/awesome-dsh-plugin` 维护。要出现“一键安装”卡片，向该仓库
-的 `plugins.json` 追加本包的条目（内容见 [market/entry.json](market/entry.json)）：
+DSH 桌面端的可视化插件市场（[`dshmarket`](https://github.com/dsh-market/dsh-market)）和
+[awesome-dsh-plugin 列表](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 的数据源是
+`data/plugins/` 下的 **一个插件一个 YAML 文件**（`plugins.json` 与两个 README 都由脚本从它生成，
+不要手工编辑）。README 级的网页由 [contributing.md](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)
+维护。
 
-```json
-{
-  "name": "dsh-codegraph",
-  "owner": "jiangzhenguo",
-  "url": "https://github.com/jiangzhenguo/dsh-codegraph",
-  "category": "tools",
-  "description": {
-    "en": "Registers 13 native `codegraph_*` tools ...",
-    "zh": "注册 13 个原生 `codegraph_*` 工具 ..."
-  },
-  "install": "dsh plugin --profile web add github:jiangzhenguo/dsh-codegraph",
-  "npm": null,
-  "added": "<YYYY-MM-DD>"
-}
+向该仓库发一个 PR，追加一个文件 `data/plugins/jiangzhenguo__dsh-codegraph.yml`（建议内容，
+见 [market/jiangzhenguo__dsh-codegraph.yml](market/jiangzhenguo__dsh-codegraph.yml)）：
+
+```yaml
+url: https://github.com/jiangzhenguo/dsh-codegraph
+name: jiangzhenguo/dsh-codegraph
+category: tools
+description:
+  en: 'DSH bundle that registers 13 native codegraph_* tools wrapping the codegraph CLI, ...'
+  zh: 'DSH 插件，注册 13 个原生 codegraph_* 工具包装 codegraph CLI，...'
 ```
 
-合并后插件即可在 DSH 插件市场的 **Tools & Capabilities** 分类下被搜索到并一键安装。
+收录门槛（CI 会自动查）：仓库声明 `dsh.bundle`（已满足）、**创建满 1 天**、**提交数 ≥ 10**、
+真实可用代码、仓库打上 [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic、描述属实
+（13 个工具与代码一致）。合并后即可在 **Tools & Capabilities** 分类被搜索并一键安装。
 
 ## 测试
 
@@ -146,10 +145,10 @@ CG_PROFILE_NM=<profile>/node_modules node test/run-plugin-test.mjs
 ## 仓库结构
 
 ```
-├── package.json        # DSH bundle 声明（dsh.bundle.patch）+ @deepseek-ai/dsh-tools 依赖
+├── package.json        # DSH bundle 声明（dsh.bundle.patch）+ @deepseek-ai/dsh-tools peerDependency
 ├── cordis.patch.yml    # 组合层 patch（把本插件的 node half 插入 host 组合）
 ├── lib/index.js        # 插件实现：注册 13 个 codegraph_* 工具
-├── market/entry.json   # 面向 awesome-dsh-plugin 注册表的条目模板
+├── market/             # awesome-dsh-plugin 收录用的 data/plugins/<owner>__<repo>.yml
 ├── test/               # 运行时测试 harness（真实 CLI + 桩 cordis 服务）
 └── plugin-host.js      # （旧）会话级 host-only 动态版，仅作参考
 ```
