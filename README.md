@@ -67,6 +67,23 @@ dsh plugin --profile web add github:jiangzhenguo/dsh-codegraph
 dsh plugin --profile web remove dsh-codegraph
 ```
 
+## 一装上就会优先调用 codegraph 搜代码
+
+插件不只是一个「把工具放出来」的包，它还会**在系统提示词里注入一条高优先级指引**
+（`tool:codegraph`，`order: 98`），让模型在搜索/探索代码时**优先用 `codegraph_*` 而不是
+grep / glob / read**：
+
+- DSH 内置文件工具的指引集中在 `order 100–104`（`read`=100、`write`=101、`edit`=102、
+  `glob`=103、`grep`=104）。本插件的指引放在 **98**，落在它们之前，因此模型先看到
+  “优先用 codegraph_* 搜代码”。
+- 指引明确告诉模型：先 `codegraph_status`，未初始化则 `codegraph_init`，之后用
+  `codegraph_query` / `codegraph_explore` / `codegraph_node` / `codegraph_callers` /
+  `codegraph_callees` / `codegraph_impact` / `codegraph_affected` 去做结构化、按依赖图的检索，
+  改完代码用 `codegraph_sync`；仅当该路径无索引时才回退到 grep/glob/read。
+
+也就是说：**装上即生效，无需每个会话单独配置**——其他会话也一样会优先走 codegraph
+来完成代码搜索。
+
 ## 使用流程
 
 1. 在项目目录开一个新的 DSH 会话（cwd = 项目根）。
@@ -118,8 +135,9 @@ harness：加载本插件的 `lib/index.js`，挂载 `tools`/`subprocess` 服务
 CG_PROFILE_NM=<profile>/node_modules node test/run-plugin-test.mjs
 ```
 
-覆盖：mount 不抛错、13 个工具全部注册、`status`→`init`→`query`→`node`→`files` 主流程、
-`sync`/`impact`/`affected`、显式 `path` 覆盖、以及「无 cwd 且无 path 时报错」的错误路径。
+覆盖：mount 不抛错、**`tool:codegraph` 提示词注入（order 98 < 100，先于 grep/glob/read）**、
+13 个工具全部注册、`status`→`init`→`query`→`node`→`files` 主流程、`sync`/`impact`/`affected`、
+显式 `path` 覆盖、以及「无 cwd 且无 path 时报错」的错误路径。
 
 > 说明：`callers`/`callees` 在本机 `codegraph@1.0.1` 上返回空数组是 **CLI 侧数据/索引特性**
 > （该版本的调用图边未解析到），与插件无关——插件忠实返回 CLI 的真实输出；`impact` 已能
