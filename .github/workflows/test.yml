@@ -1,0 +1,31 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The plugin wraps the real `codegraph` CLI; install it so the harness
+      # exercises the actual binary on PATH.
+      - name: Install codegraph CLI
+        run: npm install -g @colbymchenry/codegraph
+
+      # @deepseek-ai/dsh-tools and schemastery are peerDependencies of the
+      # plugin; install them into the repo's node_modules so the test harness
+      # can import the plugin's lib/index.js and resolve defineTool/Config.
+      # (In a real DSH profile these are already provided by the harness.)
+      - name: Install plugin peer dependencies
+        run: npm install --no-save @deepseek-ai/dsh-tools@0.1.0-rc.7 @deepseek-ai/schemastery@3.18.1
+
+      - name: Run plugin test harness
+        run: node test/run-plugin-test.mjs
