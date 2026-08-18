@@ -100,45 +100,6 @@ codegraph 的官方 MCP server 在工作区**未建立索引时暴露 0 个工�
 “不要自己索引”）。本插件始终暴露工具——包括模型自举和维护索引所需的
 `init`/`index`/`sync`——因此是比 MCP 更顺手的集成方式。
 
-## 注册到 DSH 插件市场
-
-DSH 桌面端的可视化插件市场（[`dshmarket`](https://github.com/dsh-market/dsh-market)）和
-[awesome-dsh-plugin 列表](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 的数据源是
-`data/plugins/` 下的 **一个插件一个 YAML 文件**（`plugins.json` 与两个 README 都由脚本从它生成，
-不要手工编辑）。README 级的网页由 [contributing.md](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)
-维护。
-
-向该仓库发一个 PR，追加一个文件 `data/plugins/jiangzhenguo__dsh-codegraph.yml`（建议内容，
-见 [market/jiangzhenguo__dsh-codegraph.yml](market/jiangzhenguo__dsh-codegraph.yml)）：
-
-```yaml
-url: https://github.com/jiangzhenguo/dsh-codegraph
-name: jiangzhenguo/dsh-codegraph
-category: tools
-description:
-  en: 'DSH bundle that registers 13 native codegraph_* tools wrapping the codegraph CLI, ...'
-  zh: 'DSH 插件，注册 13 个原生 codegraph_* 工具包装 codegraph CLI，...'
-```
-
-收录门槛（CI 会自动查）：仓库声明 `dsh.bundle`（✅ 已满足）、**创建满 1 天**（⏳ 等待中，不能提前）、
-**提交数 ≥ 10**（✅ 当前 10）、真实可用代码（✅ 23 项测试）、仓库打上
-[`dsh-plugin`](https://github.com/topics/dsh-plugin) topic（⭕ 需你用一个带 repo 权限的 token 跑一次）、
-描述属实（✅ 12 个 `codegraph_*` 工具与代码一致）。合并后即可在 **Tools & Capabilities** 分类被
-搜索并一键安装。
-
-**发起收录 PR 前请做这两件事**（需要 GitHub API 权限，我的会话只有 SSH、无 API token，无法代做）：
-
-```bash
-# 1) 给仓库打上 dsh-plugin topic（用有 repo 权限的账号）
-gh auth login
-gh repo edit jiangzhenguo/dsh-codegraph --add-topic dsh-plugin
-git push -u origin main   # 确认所有提交都已推送
-
-# 2) 等到仓库创建满 1 天后再发 PR（CI 会自动检查年龄与提交数）
-#    然后向 awesome-dsh-plugin 仓库 PR，新增一个文件：
-#    data/plugins/jiangzhenguo__dsh-codegraph.yml（内容见 market/ 同名文件）
-```
-
 ## 测试
 
 `test/run-plugin-test.mjs` 是一个自带真实 `codegraph` CLI + 桩 cordis 服务的运行时测试
@@ -163,7 +124,6 @@ CG_PROFILE_NM=<profile>/node_modules node test/run-plugin-test.mjs
 ├── package.json        # DSH bundle 声明（dsh.bundle.patch）+ @deepseek-ai/dsh-tools peerDependency
 ├── cordis.patch.yml    # 组合层 patch（把本插件的 node half 插入 host 组合）
 ├── lib/index.js        # 插件实现：注册 13 个 codegraph_* 工具
-├── market/             # awesome-dsh-plugin 收录用的 data/plugins/<owner>__<repo>.yml
 ├── test/               # 运行时测试 harness（真实 CLI + 桩 cordis 服务）
 └── plugin-host.js      # （旧）会话级 host-only 动态版，仅作参考
 ```
