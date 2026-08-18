@@ -1,0 +1,4 @@
+node_modules/
+.codegraph/
+*.log
+.DS_Store

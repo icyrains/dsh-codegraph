@@ -1,0 +1,123 @@
+# dsh-codegraph
+
+让 DSH 会话直接使用 [CodeGraph](https://github.com/colbymchenry/codegraph)
+（`@colbymchenry/codegraph`）的预索引代码知识图谱能力。
+
+这是一个**可一键安装的 DSH 插件**（bundle）：它把 `codegraph` CLI 包装成
+**13 个模型可见的原生工具**，模型在分析代码时无需 grep/读大量文件，直接按符号、
+按区域、按调用链查询索引，并能自举并维护索引（`init`/`index`/`sync`）。
+
+## 提供的工具
+
+| 工具 | 对应 CLI | 用途 |
+|---|---|---|
+| `codegraph_status` | `status --json` | 索引状态（是否已初始化、版本、文件/节点/边数、待同步变更、建议重建等） |
+| `codegraph_init` | `init` | 初始化项目并建立初始索引（`.codegraph/`） |
+| `codegraph_index` | `index` | 全量（重）索引；`status` 建议 reindex 时用 |
+| `codegraph_sync` | `sync` | 增量同步索引（改代码后调用，让查询反映新代码） |
+| `codegraph_uninit` | `uninit -f` | 删除项目索引 |
+| `codegraph_query` | `query --json` | 按名称/子串搜索符号，返回结构化 JSON |
+| `codegraph_node` | `node` | 单个符号源码 + 调用/被调用轨迹，或带行号读文件 + 依赖 |
+| `codegraph_explore` | `explore` | 自然语言探索一块代码区域，直接返回相关文件源码与调用路径 |
+| `codegraph_files` | `files --json` | 索引内的项目文件结构 |
+| `codegraph_callers` | `callers --json` | 谁调用了某个符号 |
+| `codegraph_callees` | `callees --json` | 某个符号调用了什么 |
+| `codegraph_impact` | `impact --json` | 改动某个符号会波及哪些代码（重构/改名前用） |
+| `codegraph_affected` | `affected --json` | 改动若干源文件后应运行哪些测试文件 |
+
+工具名与 CodeGraph 官方 MCP 工具同名，模型的使用心智与官方文档一致。
+
+## 前置要求
+
+1. 已安装 [DSH](https://github.com/deepseek-ai/deepseek-harness)（本插件为 DSH bundle，随
+   DSH web 应用装载）。
+2. 已安装 `codegraph` CLI 且其可执行文件在 `PATH` 上（插件在运行时按名字 `codegraph`
+   解析可执行文件）：
+
+   ```bash
+   npm i -g @colbymchenry/codegraph     # 或按官方 install.sh / npm thin shim 安装
+   codegraph --version                  # 确认可用（≥ 1.0）
+   ```
+
+## 一键安装
+
+在 DSH 应用的 web profile 中安装（一条命令，无需手动改任何配置文件）：
+
+```bash
+dsh plugin --profile web add github:jiangzhenguo/dsh-codegraph
+```
+
+做了什么：
+
+- `dsh plugin` 会在 profile 目录里跑 `pnpm add github:jiangzhenguo/dsh-codegraph`；
+- 因为本包的 `package.json` 声明了 `dsh.bundle.patch`，DSH 的 plugin 管理器会把它自动
+  加入 profile 的 `dsh.profile.bundles` 层栈（`cordis.patch.yml` 里那一条 `insert` 就是它的
+  组合层，不需要你手动加）；
+- 重启 DSH 应用后，任意会话里模型即可看到 13 个 `codegraph_*` 工具。
+
+> 其他 profile：把 `--profile web` 换成 `--profile tui` 等即可。
+
+### 从 npm 安装（备选）
+
+本包同样可按常规 npm 包发布/安装；若已发布到 npm，用包名替换上面开头的 `github:` 即可。
+
+### 卸载
+
+```bash
+dsh plugin --profile web remove dsh-codegraph
+```
+
+## 使用流程
+
+1. 在项目目录开一个新的 DSH 会话（cwd = 项目根）。
+2. 让模型先跑 `codegraph_status`：未初始化 → 跑 `codegraph_init`。
+3. 之后即可用 `codegraph_query` / `codegraph_explore` / `codegraph_node` /
+   `codegraph_callers` / `codegraph_callees` / `codegraph_impact` 查代码。
+4. 改动代码后用 `codegraph_sync`，需要跑测试时用 `codegraph_affected`。
+
+所有工具默认作用于调用方会话的 cwd；也可显式传 `path` 指向其他项目。
+
+## 为什么会话级 MCP server 不理想（本插件为何存在）
+
+codegraph 的官方 MCP server 在工作区**未建立索引时暴露 0 个工具**（并提示模型
+“不要自己索引”）。本插件始终暴露工具——包括模型自举和维护索引所需的
+`init`/`index`/`sync`——因此是比 MCP 更顺手的集成方式。
+
+## 注册到 DSH 插件市场
+
+DSH 桌面端的可视化插件市场（[`dshmarket`](https://dshmarket.com)）读取的是策划型注册表
+`https://awesome-dsh-plugin.com/plugins.json`，由
+`github.com/awesome-dsh-plugin/awesome-dsh-plugin` 维护。要出现“一键安装”卡片，向该仓库
+的 `plugins.json` 追加本包的条目（内容见 [market/entry.json](market/entry.json)）：
+
+```json
+{
+  "name": "dsh-codegraph",
+  "owner": "jiangzhenguo",
+  "url": "https://github.com/jiangzhenguo/dsh-codegraph",
+  "category": "tools",
+  "description": {
+    "en": "Registers 13 native `codegraph_*` tools ...",
+    "zh": "注册 13 个原生 `codegraph_*` 工具 ..."
+  },
+  "install": "dsh plugin --profile web add github:jiangzhenguo/dsh-codegraph",
+  "npm": null,
+  "added": "<YYYY-MM-DD>"
+}
+```
+
+合并后插件即可在 DSH 插件市场的 **Tools & Capabilities** 分类下被搜索到并一键安装。
+
+## 仓库结构
+
+```
+├── package.json        # DSH bundle 声明（dsh.bundle.patch）+ @deepseek-ai/dsh-tools 依赖
+├── cordis.patch.yml    # 组合层 patch（把本插件的 node half 插入 host 组合）
+├── lib/index.js        # 插件实现：注册 13 个 codegraph_* 工具
+├── market/entry.json   # 面向 awesome-dsh-plugin 注册表的条目模板
+└── plugin-host.js      # （旧）会话级 host-only 动态版，仅作参考
+```
+
+## 许可
+
+MIT
