@@ -108,6 +108,23 @@ DSH 桌面端的可视化插件市场（[`dshmarket`](https://dshmarket.com)）�
 
 合并后插件即可在 DSH 插件市场的 **Tools & Capabilities** 分类下被搜索到并一键安装。
 
+## 测试
+
+`test/run-plugin-test.mjs` 是一个自带真实 `codegraph` CLI + 桩 cordis 服务的运行时测试
+harness：加载本插件的 `lib/index.js`，挂载 `tools`/`subprocess` 服务，`apply()` 后逐一调用
+13 个工具的真实 `execute`。在装好插件的 profile 里运行：
+
+```bash
+CG_PROFILE_NM=<profile>/node_modules node test/run-plugin-test.mjs
+```
+
+覆盖：mount 不抛错、13 个工具全部注册、`status`→`init`→`query`→`node`→`files` 主流程、
+`sync`/`impact`/`affected`、显式 `path` 覆盖、以及「无 cwd 且无 path 时报错」的错误路径。
+
+> 说明：`callers`/`callees` 在本机 `codegraph@1.0.1` 上返回空数组是 **CLI 侧数据/索引特性**
+> （该版本的调用图边未解析到），与插件无关——插件忠实返回 CLI 的真实输出；`impact` 已能
+> 返回真实的受影响节点与边。
+
 ## 仓库结构
 
 ```
@@ -115,6 +132,7 @@ DSH 桌面端的可视化插件市场（[`dshmarket`](https://dshmarket.com)）�
 ├── cordis.patch.yml    # 组合层 patch（把本插件的 node half 插入 host 组合）
 ├── lib/index.js        # 插件实现：注册 13 个 codegraph_* 工具
 ├── market/entry.json   # 面向 awesome-dsh-plugin 注册表的条目模板
+├── test/               # 运行时测试 harness（真实 CLI + 桩 cordis 服务）
 └── plugin-host.js      # （旧）会话级 host-only 动态版，仅作参考
 ```
 
