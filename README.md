@@ -120,9 +120,24 @@ description:
   zh: 'DSH 插件，注册 13 个原生 codegraph_* 工具包装 codegraph CLI，...'
 ```
 
-收录门槛（CI 会自动查）：仓库声明 `dsh.bundle`（已满足）、**创建满 1 天**、**提交数 ≥ 10**、
-真实可用代码、仓库打上 [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic、描述属实
-（13 个工具与代码一致）。合并后即可在 **Tools & Capabilities** 分类被搜索并一键安装。
+收录门槛（CI 会自动查）：仓库声明 `dsh.bundle`（✅ 已满足）、**创建满 1 天**（⏳ 等待中，不能提前）、
+**提交数 ≥ 10**（✅ 当前 10）、真实可用代码（✅ 23 项测试）、仓库打上
+[`dsh-plugin`](https://github.com/topics/dsh-plugin) topic（⭕ 需你用一个带 repo 权限的 token 跑一次）、
+描述属实（✅ 12 个 `codegraph_*` 工具与代码一致）。合并后即可在 **Tools & Capabilities** 分类被
+搜索并一键安装。
+
+**发起收录 PR 前请做这两件事**（需要 GitHub API 权限，我的会话只有 SSH、无 API token，无法代做）：
+
+```bash
+# 1) 给仓库打上 dsh-plugin topic（用有 repo 权限的账号）
+gh auth login
+gh repo edit jiangzhenguo/dsh-codegraph --add-topic dsh-plugin
+git push -u origin main   # 确认所有提交都已推送
+
+# 2) 等到仓库创建满 1 天后再发 PR（CI 会自动检查年龄与提交数）
+#    然后向 awesome-dsh-plugin 仓库 PR，新增一个文件：
+#    data/plugins/jiangzhenguo__dsh-codegraph.yml（内容见 market/ 同名文件）
+```
 
 ## 测试
 
