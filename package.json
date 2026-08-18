@@ -27,9 +27,6 @@
   "dependencies": {
     "@deepseek-ai/dsh-tools": "0.1.0-rc.7"
   },
-  "scripts": {
-    "prepare": "node -e \"require('node:fs').accessSync('lib/index.js')\" || echo 'dsh-codegraph: nothing to build — lib/index.js ships as source'"
-  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
