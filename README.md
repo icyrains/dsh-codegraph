@@ -4,8 +4,14 @@
 （`@colbymchenry/codegraph`）的预索引代码知识图谱能力。
 
 这是一个**可一键安装的 DSH 插件**（bundle）：它把 `codegraph` CLI 包装成
-**13 个模型可见的原生工具**，模型在分析代码时无需 grep/读大量文件，直接按符号、
+**模型可见的原生工具**，模型在分析代码时无需 grep/读大量文件，直接按符号、
 按区域、按调用链查询索引，并能自举并维护索引（`init`/`index`/`sync`）。
+
+> **工具面（surface）**：借鉴上游项目「`codegraph_explore` 是唯一稳定赢得模型调用的工具」
+> 的实测结论（其官方 MCP server 默认只暴露 explore），本插件**默认只注册 4 个核心工具**
+> （`codegraph_status` / `codegraph_init` / `codegraph_sync` / `codegraph_explore`），
+> 保持模型工具列表精简、引导集中。需要全部 13 个工具时，在组合层配置
+> `surface: 'full'`（见下文「配置」）。
 
 ## 提供的工具
 
@@ -53,7 +59,7 @@ dsh plugin --profile web add github:jiangzhenguo/dsh-codegraph
 - 因为本包的 `package.json` 声明了 `dsh.bundle.patch`，DSH 的 plugin 管理器会把它自动
   加入 profile 的 `dsh.profile.bundles` 层栈（`cordis.patch.yml` 里那一条 `insert` 就是它的
   组合层，不需要你手动加）；
-- 重启 DSH 应用后，任意会话里模型即可看到 13 个 `codegraph_*` 工具。
+- 重启 DSH 应用后，任意会话里模型即可看到 `codegraph_*` 工具（默认 core 面 4 个）。
 
 > 其他 profile：把 `--profile web` 换成 `--profile tui` 等即可。
 
@@ -76,21 +82,64 @@ grep / glob / read**：
 - DSH 内置文件工具的指引集中在 `order 100–104`（`read`=100、`write`=101、`edit`=102、
   `glob`=103、`grep`=104）。本插件的指引放在 **98**，落在它们之前，因此模型先看到
   “优先用 codegraph_* 搜代码”。
-- 指引明确告诉模型：先 `codegraph_status`，未初始化则 `codegraph_init`，之后用
-  `codegraph_query` / `codegraph_explore` / `codegraph_node` / `codegraph_callers` /
-  `codegraph_callees` / `codegraph_impact` / `codegraph_affected` 去做结构化、按依赖图的检索，
-  改完代码用 `codegraph_sync`；仅当该路径无索引时才回退到 grep/glob/read。
+- 指引措辞采用上游官方 MCP server instructions 的同款策略（软性 "Prefer" 会被模型忽略，
+  实测会退回 grep/bash 反射路径）：**命令式**（MUST use `codegraph_explore` INSTEAD of
+  grep/glob/read）+ **反模式清单**（不要先 grep「找文件」、不要用 grep 复核 codegraph
+  结果——它来自完整 AST 解析）+ **未索引项目的硬停止规则**（不自行初始化时，本会话
+  不再调用 codegraph 工具，索引与否是用户的决定）。
+- 指引只点名 core surface 的 4 个工具：`codegraph_status` 确认索引 → 未初始化则
+  `codegraph_init` → 之后用 `codegraph_explore` 一次拿到相关符号的逐行源码 + 调用链，
+  改完代码用 `codegraph_sync`。
 
 也就是说：**装上即生效，无需每个会话单独配置**——其他会话也一样会优先走 codegraph
 来完成代码搜索。
+
+## 结构化 prompt 自动前置注入（frontload）
+
+提示词指引仍是「软性」的——模型可能忽略它（上游实测如此）。因此本插件实现了上游
+`UserPromptSubmit` prompt-hook 的 DSH 等价物，也是上游验证过最有效的采用率手段：
+
+- 插件监听 `agent/inbox/inserted` 事件；当一条**真实用户 prompt** 进入 agent 的
+  next-turn 收件箱时，按置信度分级门控：
+  - **高置信**：prompt 含结构性关键词（中/英：「调用 / 流程 / 原理 / 重构 / 影响 /
+    依赖 / how does / who calls / refactor / trace …」）→ 直接触发；
+  - **中置信**：prompt 含代码形态 token（文件名 / camelCase / PascalCase / snake_case）
+    → 先用 `codegraph query` 对照索引验证 token 是真实符号才触发；
+  - 其余 prompt（如「fix this typo」）零开销静默跳过。
+- 触发后在会话 cwd 向上找最近的 `.codegraph/` 索引根（找不到 = 未索引 = 静默跳过，
+  **是否索引是用户的决定，插件不擅自 init**），预跑 `codegraph_explore`，把结果以
+  `<codegraph_context>` 包裹 steer 进当前 turn（上限 12000 字符）。
+- 于是「模型反射性 grep/read 要找的东西已经在上下文里了」——context 先于工具调用到达。
+- **绝不弄坏用户 prompt**：所有失败路径（无索引、门控未命中、CLI 报错）都是静默 no-op；
+  注入内容带标记，不会触发自身循环（steer 落在 next-step 边界，监听器只看 next-turn）。
+- **去重**：同文 prompt 在 10 分钟内重复进入收件箱（GUI 重发排队消息、step 被拒后重新
+  入队——每次消息 id 都是新的）只会注入一次，避免重复上下文。
+- 可用配置 `frontload: false` 整体关闭。
+
+## 配置
+
+在组合层（如 `cordis.patch.yml` 的 insert 行）可为插件传配置：
+
+```yaml
+- insert:
+    - id: dsh-codegraph
+      name: dsh-codegraph
+      require: dsh-codegraph
+      config:
+        guideSearch: true    # 默认 true：注入上述系统提示指引；false 只注册工具
+        surface: core        # 默认 core：只注册 status/init/sync/explore 共 4 个工具；
+                             # 设为 full 注册全部 13 个
+        frontload: true      # 默认 true：结构化 prompt 自动前置注入；false 关闭
+```
 
 ## 使用流程
 
 1. 在项目目录开一个新的 DSH 会话（cwd = 项目根）。
 2. 让模型先跑 `codegraph_status`：未初始化 → 跑 `codegraph_init`。
-3. 之后即可用 `codegraph_query` / `codegraph_explore` / `codegraph_node` /
-   `codegraph_callers` / `codegraph_callees` / `codegraph_impact` 查代码。
-4. 改动代码后用 `codegraph_sync`，需要跑测试时用 `codegraph_affected`。
+3. 之后用 `codegraph_explore` 查代码（一次调用返回相关符号源码 + 调用链）；
+   `surface: 'full'` 下还可用 `codegraph_query` / `codegraph_node` /
+   `codegraph_callers` / `codegraph_callees` / `codegraph_impact` 做更细的查询。
+4. 改动代码后用 `codegraph_sync`，需要跑测试时用 `codegraph_affected`（full）。
 
 所有工具默认作用于调用方会话的 cwd；也可显式传 `path` 指向其他项目。
 
@@ -104,14 +153,18 @@ codegraph 的官方 MCP server 在工作区**未建立索引时暴露 0 个工�
 
 `test/run-plugin-test.mjs` 是一个自带真实 `codegraph` CLI + 桩 cordis 服务的运行时测试
 harness：加载本插件的 `lib/index.js`，挂载 `tools`/`subprocess` 服务，`apply()` 后逐一调用
-13 个工具的真实 `execute`。在装好插件的 profile 里运行：
+工具的真实 `execute`。在装好插件的 profile 里运行：
 
 ```bash
 CG_PROFILE_NM=<profile>/node_modules node test/run-plugin-test.mjs
 ```
 
 覆盖：mount 不抛错、**`tool:codegraph` 提示词注入（order 98 < 100，先于 grep/glob/read）**、
-13 个工具全部注册、`status`→`init`→`query`→`node`→`files` 主流程、`sync`/`impact`/`affected`、
+**默认 core surface 只注册 status/init/sync/explore 共 4 个工具**、`surface: 'full'` 下
+13 个工具全部注册并逐一真实执行（`status`→`init`→`query`→`node`→`files` 主流程、
+`sync`/`impact`/`affected`）、**frontload 前置注入**（结构性 prompt 注入 `<codegraph_context>`、
+同文重发去重、非结构性/未索引/自循环/rpc 来源静默跳过、`frontload:false` 不注册监听器）、
+**无执行器服务时 apply 不抛错**（惰性解析，启动顺序安全）、
 显式 `path` 覆盖、以及「无 cwd 且无 path 时报错」的错误路径。
 
 > 说明：`callers`/`callees` 在本机 `codegraph@1.0.1` 上返回空数组是 **CLI 侧数据/索引特性**
@@ -123,7 +176,7 @@ CG_PROFILE_NM=<profile>/node_modules node test/run-plugin-test.mjs
 ```
 ├── package.json        # DSH bundle 声明（dsh.bundle.patch）+ @deepseek-ai/dsh-tools peerDependency
 ├── cordis.patch.yml    # 组合层 patch（把本插件的 node half 插入 host 组合）
-├── lib/index.js        # 插件实现：注册 13 个 codegraph_* 工具
+├── lib/index.js        # 插件实现：注册 codegraph_* 工具（core 4 个 / full 13 个）
 ├── test/               # 运行时测试 harness（真实 CLI + 桩 cordis 服务）
 └── plugin-host.js      # （旧）会话级 host-only 动态版，仅作参考
 ```
