@@ -150,7 +150,7 @@ const registeredTools = []
 const promptSections = []
 const listeners = []
 
-// inject() no-op: installSettingsSection rides ctx.inject(['settings'], …),
+// inject() no-op: ctx.settings.installSection rides ctx.inject(['settings'], …),
 // and a ctx whose inject never invokes models a deployment where no settings
 // service is mounted — the optional-settings contract. Test 25 exercises a
 // settings-served ctx separately.

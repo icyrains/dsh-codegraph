@@ -131,7 +131,9 @@ grep / glob / read**：
 
 设置变更**即时生效**：插件拆掉旧的提示词 section、工具面与 frontload 监听器后按新值
 重挂，不需要重启 DSH。浏览器半（`client/client.js`）负责渲染该设置卡片；宿主半通过
-`@deepseek-ai/dsh-settings` 的 `installSettingsSection` 注册命名空间。
+`ctx.settings.installSection` 注册命名空间（`@deepseek-ai/dsh-settings` 0.1.2-rc.1 起，
+命名空间 id 就是普通的小写连字符字符串，注册入口从独立的 `installSettingsSection` 
+辅助函数改为 `settings` 服务上的方法）。
 
 ## 配置（组合层）
 

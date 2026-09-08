@@ -2,7 +2,7 @@
 //
 // 手写 __ModuleLoader__ factory bundle（CJS factory），与 dsh-rules-manager-client /
 // dsh-token-usage 同构。注册 settings.plugin.item（key = 'dsh-codegraph'）：
-// 宿主半通过 installSettingsSection 把 Config 注册为 `dsh-codegraph` 设置命名空间，
+// 宿主半通过 ctx.settings.installSection 把 Config 注册为 `dsh-codegraph` 设置命名空间，
 // 本卡片经 ctx.settingsScope.bind({ namespace: 'dsh-codegraph' }) 读写它。
 //
 // 字段（对应 lib/index.js 的 Config）：
